@@ -33,11 +33,19 @@ async function initDb() {
       displayName TEXT NOT NULL,
       passwordHash TEXT NOT NULL,
       avatarColor TEXT NOT NULL DEFAULT '#8b5cf6',
+      avatarImage TEXT DEFAULT '',
       bio TEXT DEFAULT '',
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       lastSeen DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Migrate column for existing database if needed
+  try {
+    db.run(`ALTER TABLE users ADD COLUMN avatarImage TEXT DEFAULT ''`);
+  } catch (e) {
+    // Column already exists
+  }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS friend_requests (

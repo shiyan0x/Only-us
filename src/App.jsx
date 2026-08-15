@@ -58,5 +58,11 @@ export default function App() {
     return <AuthPage onAuth={handleAuth} />;
   }
 
-  return <Dashboard user={user} onLogout={handleLogout} />;
+  return (
+    <Dashboard
+      user={user}
+      onLogout={handleLogout}
+      onUserUpdate={(updated) => setUser(updated)}
+    />
+  );
 }

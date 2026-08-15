@@ -14,7 +14,8 @@ const io = new Server(httpServer, {
 });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ──────────────────────────────────────────────
 //  Avatar color palette
@@ -63,20 +64,30 @@ app.post('/api/auth/signup', (req, res) => {
     const passwordHash = bcrypt.hashSync(password, 10);
     const avatarColor = randomColor();
 
-    const result = db.prepare(
+    db.prepare(
       'INSERT INTO users (username, displayName, passwordHash, avatarColor) VALUES (?, ?, ?, ?)'
     ).run(username, displayName, passwordHash, avatarColor);
 
-    const user = { id: result.lastInsertRowid, username };
-    const token = generateToken(user);
+    // Query back to get the correct auto-incremented ID
+    const newUser = db.prepare(
+      'SELECT id, username, displayName, avatarColor, avatarImage, bio FROM users WHERE username = ?'
+    ).get(username);
+
+    if (!newUser) {
+      return res.status(500).json({ error: 'Account creation failed.' });
+    }
+
+    const token = generateToken({ id: newUser.id, username: newUser.username });
 
     res.status(201).json({
       token,
       user: {
-        id: result.lastInsertRowid,
-        username,
-        displayName,
-        avatarColor,
+        id: newUser.id,
+        username: newUser.username,
+        displayName: newUser.displayName,
+        avatarColor: newUser.avatarColor,
+        avatarImage: newUser.avatarImage || '',
+        bio: newUser.bio || '',
       },
     });
   } catch (err) {
@@ -95,7 +106,7 @@ app.post('/api/auth/signin', (req, res) => {
     }
 
     const user = db.prepare(
-      'SELECT id, username, displayName, passwordHash, avatarColor FROM users WHERE username = ?'
+      'SELECT id, username, displayName, passwordHash, avatarColor, avatarImage, bio FROM users WHERE username = ?'
     ).get(username);
 
     if (!user) {
@@ -119,6 +130,8 @@ app.post('/api/auth/signin', (req, res) => {
         username: user.username,
         displayName: user.displayName,
         avatarColor: user.avatarColor,
+        avatarImage: user.avatarImage || '',
+        bio: user.bio || '',
       },
     });
   } catch (err) {
@@ -130,11 +143,94 @@ app.post('/api/auth/signin', (req, res) => {
 // Get current user
 app.get('/api/auth/me', authenticateToken, (req, res) => {
   const user = db.prepare(
-    'SELECT id, username, displayName, avatarColor, bio, createdAt FROM users WHERE id = ?'
+    'SELECT id, username, displayName, avatarColor, avatarImage, bio, createdAt FROM users WHERE id = ?'
   ).get(req.user.id);
 
   if (!user) return res.status(404).json({ error: 'User not found.' });
-  res.json({ user });
+
+  // Get friends count
+  const friendsCount = db.prepare(
+    `SELECT COUNT(*) as count FROM friend_requests 
+     WHERE (fromUserId = ? OR toUserId = ?) AND status = 'accepted'`
+  ).get(req.user.id, req.user.id);
+
+  res.json({ user: { ...user, friendsCount: friendsCount?.count || 0 } });
+});
+
+// Update current user profile
+app.put('/api/users/profile', authenticateToken, (req, res) => {
+  try {
+    const { displayName, bio, avatarImage } = req.body;
+    const userId = req.user.id;
+
+    if (!displayName || displayName.trim().length === 0) {
+      return res.status(400).json({ error: 'Display name cannot be empty.' });
+    }
+
+    if (displayName.length > 30) {
+      return res.status(400).json({ error: 'Display name cannot exceed 30 characters.' });
+    }
+
+    if (bio && bio.length > 200) {
+      return res.status(400).json({ error: 'Bio cannot exceed 200 characters.' });
+    }
+
+    db.prepare(
+      'UPDATE users SET displayName = ?, bio = ?, avatarImage = ? WHERE id = ?'
+    ).run(displayName.trim(), bio ? bio.trim() : '', avatarImage || '', userId);
+
+    const updatedUser = db.prepare(
+      'SELECT id, username, displayName, avatarColor, avatarImage, bio, createdAt FROM users WHERE id = ?'
+    ).get(userId);
+
+    const friendsCount = db.prepare(
+      `SELECT COUNT(*) as count FROM friend_requests 
+       WHERE (fromUserId = ? OR toUserId = ?) AND status = 'accepted'`
+    ).get(userId, userId);
+
+    res.json({ user: { ...updatedUser, friendsCount: friendsCount?.count || 0 } });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Server error updating profile.' });
+  }
+});
+
+// Get any user's public profile + friends count + friends list
+app.get('/api/users/profile/:userId', authenticateToken, (req, res) => {
+  try {
+    const targetId = parseInt(req.params.userId);
+
+    const targetUser = db.prepare(
+      'SELECT id, username, displayName, avatarColor, avatarImage, bio, createdAt, lastSeen FROM users WHERE id = ?'
+    ).get(targetId);
+
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Get friend list of this user
+    const friends = db.prepare(
+      `SELECT u.id, u.username, u.displayName, u.avatarColor, u.avatarImage
+       FROM friend_requests fr
+       JOIN users u ON (u.id = CASE WHEN fr.fromUserId = ? THEN fr.toUserId ELSE fr.fromUserId END)
+       WHERE (fr.fromUserId = ? OR fr.toUserId = ?) AND fr.status = 'accepted'
+       ORDER BY u.displayName`
+    ).all(targetId, targetId, targetId);
+
+    const isOnline = onlineUsers.has(targetId);
+
+    res.json({
+      user: {
+        ...targetUser,
+        isOnline,
+        friendsCount: friends.length,
+        friends,
+      },
+    });
+  } catch (err) {
+    console.error('Get user profile error:', err);
+    res.status(500).json({ error: 'Server error fetching user profile.' });
+  }
 });
 
 // ──────────────────────────────────────────────
@@ -149,7 +245,7 @@ app.get('/api/users/search', authenticateToken, (req, res) => {
   }
 
   const users = db.prepare(
-    `SELECT id, username, displayName, avatarColor 
+    `SELECT id, username, displayName, avatarColor, avatarImage, bio 
      FROM users 
      WHERE username LIKE ? AND id != ? 
      LIMIT 20`
@@ -217,7 +313,7 @@ app.post('/api/friends/request', authenticateToken, (req, res) => {
       // Notify via socket
       const targetSocketId = onlineUsers.get(toUserId);
       if (targetSocketId) {
-        const fromUser = db.prepare('SELECT id, username, displayName, avatarColor FROM users WHERE id = ?').get(fromUserId);
+        const fromUser = db.prepare('SELECT id, username, displayName, avatarColor, avatarImage FROM users WHERE id = ?').get(fromUserId);
         io.to(targetSocketId).emit('friend:request', { from: fromUser });
       }
 
@@ -246,7 +342,7 @@ app.post('/api/friends/request', authenticateToken, (req, res) => {
 app.get('/api/friends/requests', authenticateToken, (req, res) => {
   const incoming = db.prepare(
     `SELECT fr.id, fr.status, fr.createdAt,
-            u.id as userId, u.username, u.displayName, u.avatarColor
+            u.id as userId, u.username, u.displayName, u.avatarColor, u.avatarImage
      FROM friend_requests fr
      JOIN users u ON u.id = fr.fromUserId
      WHERE fr.toUserId = ? AND fr.status = 'pending'
@@ -255,7 +351,7 @@ app.get('/api/friends/requests', authenticateToken, (req, res) => {
 
   const outgoing = db.prepare(
     `SELECT fr.id, fr.status, fr.createdAt,
-            u.id as userId, u.username, u.displayName, u.avatarColor
+            u.id as userId, u.username, u.displayName, u.avatarColor, u.avatarImage
      FROM friend_requests fr
      JOIN users u ON u.id = fr.toUserId
      WHERE fr.fromUserId = ? AND fr.status = 'pending'
@@ -282,7 +378,7 @@ app.put('/api/friends/accept/:requestId', authenticateToken, (req, res) => {
   // Notify the requester via socket
   const requesterSocketId = onlineUsers.get(request.fromUserId);
   if (requesterSocketId) {
-    const acceptedByUser = db.prepare('SELECT id, username, displayName, avatarColor FROM users WHERE id = ?').get(req.user.id);
+    const acceptedByUser = db.prepare('SELECT id, username, displayName, avatarColor, avatarImage FROM users WHERE id = ?').get(req.user.id);
     io.to(requesterSocketId).emit('friend:accepted', { user: acceptedByUser });
   }
 
@@ -312,10 +408,15 @@ app.delete('/api/friends/:friendId', authenticateToken, (req, res) => {
   const targetId = parseInt(friendId);
 
   // Delete the friendship record
-  const result = db.prepare(
+  db.prepare(
     `DELETE FROM friend_requests 
-     WHERE ((fromUserId = ? AND toUserId = ?) OR (fromUserId = ? AND toUserId = ?)) 
-     AND status = 'accepted'`
+     WHERE ((fromUserId = ? AND toUserId = ?) OR (fromUserId = ? AND toUserId = ?))`
+  ).run(userId, targetId, targetId, userId);
+
+  // Delete all chat messages between both users permanently
+  db.prepare(
+    `DELETE FROM messages 
+     WHERE (senderId = ? AND receiverId = ?) OR (senderId = ? AND receiverId = ?)`
   ).run(userId, targetId, targetId, userId);
 
   // Notify the other user via socket if online
@@ -324,13 +425,13 @@ app.delete('/api/friends/:friendId', authenticateToken, (req, res) => {
     io.to(targetSocketId).emit('friend:removed', { userId });
   }
 
-  res.json({ message: 'Friend removed successfully.' });
+  res.json({ message: 'Friend and all chat history removed successfully.' });
 });
 
 // Get friends list
 app.get('/api/friends', authenticateToken, (req, res) => {
   const friends = db.prepare(
-    `SELECT u.id, u.username, u.displayName, u.avatarColor, u.lastSeen
+    `SELECT u.id, u.username, u.displayName, u.avatarColor, u.avatarImage, u.bio, u.lastSeen
      FROM friend_requests fr
      JOIN users u ON (u.id = CASE WHEN fr.fromUserId = ? THEN fr.toUserId ELSE fr.fromUserId END)
      WHERE (fr.fromUserId = ? OR fr.toUserId = ?) AND fr.status = 'accepted'

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search, Users, UserPlus, MessageCircle, LogOut, Shield,
-  Check, X, Clock, Send,
+  Check, X, Clock, Send, UserCheck,
 } from 'lucide-react';
 import {
   searchUsers, sendFriendRequest, getFriendRequests,
@@ -10,8 +10,10 @@ import {
 } from '../services/api';
 import { getSocket } from '../services/socket';
 import ChatWindow from '../components/ChatWindow';
+import ProfileModal from '../components/ProfileModal';
 
-export default function Dashboard({ user, onLogout }) {
+export default function Dashboard({ user, onLogout, onUserUpdate }) {
+  const [currentUser, setCurrentUser] = useState(user);
   const [activeTab, setActiveTab] = useState('friends'); // 'friends' | 'requests'
   const [friends, setFriends] = useState([]);
   const [requests, setRequests] = useState({ incoming: [], outgoing: [] });
@@ -22,6 +24,7 @@ export default function Dashboard({ user, onLogout }) {
   const [messages, setMessages] = useState([]);
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [chatOpen, setChatOpen] = useState(false);
+  const [profileModalUserId, setProfileModalUserId] = useState(undefined); // undefined: closed, null/user.id: own profile, other id: other user profile
   const searchTimeout = useRef(null);
 
   // Load friends & requests
@@ -79,6 +82,7 @@ export default function Dashboard({ user, onLogout }) {
     const handleFriendRemoved = ({ userId }) => {
       if (selectedFriend?.id === userId) {
         setSelectedFriend(null);
+        setMessages([]);
         setChatOpen(false);
       }
       loadFriends();
@@ -136,11 +140,12 @@ export default function Dashboard({ user, onLogout }) {
 
   // Handle remove friend
   const handleRemoveFriend = async (friendId) => {
-    if (!window.confirm('Are you sure you want to remove this friend?')) return;
+    if (!window.confirm('Are you sure you want to remove this friend? All chat history will be permanently deleted for both of you.')) return;
     try {
       await removeFriend(friendId);
       if (selectedFriend?.id === friendId) {
         setSelectedFriend(null);
+        setMessages([]);
         setChatOpen(false);
       }
       loadFriends();
@@ -328,11 +333,21 @@ export default function Dashboard({ user, onLogout }) {
                 <div key={u.id} className="search-result-item">
                   <div
                     className="avatar"
-                    style={{ background: u.avatarColor }}
+                    style={{ background: u.avatarImage ? 'transparent' : u.avatarColor }}
+                    onClick={() => setProfileModalUserId(u.id)}
+                    title="View Profile"
                   >
-                    {getInitials(u.displayName)}
+                    {u.avatarImage ? (
+                      <img src={u.avatarImage} alt="" className="avatar-img-round" />
+                    ) : (
+                      getInitials(u.displayName)
+                    )}
                   </div>
-                  <div className="search-result-info">
+                  <div
+                    className="search-result-info"
+                    onClick={() => setProfileModalUserId(u.id)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <div className="search-result-name">{u.displayName}</div>
                     <div className="search-result-username">@{u.username}</div>
                   </div>
@@ -412,16 +427,25 @@ export default function Dashboard({ user, onLogout }) {
                       >
                         <div
                           className="avatar"
-                          style={{ background: friend.avatarColor }}
+                          style={{ background: friend.avatarImage ? 'transparent' : friend.avatarColor }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProfileModalUserId(friend.id);
+                          }}
+                          title="View Profile"
                         >
-                          {getInitials(friend.displayName)}
+                          {friend.avatarImage ? (
+                            <img src={friend.avatarImage} alt="" className="avatar-img-round" />
+                          ) : (
+                            getInitials(friend.displayName)
+                          )}
                           {friend.isOnline && <div className="online-dot" />}
                         </div>
                         <div className="friend-info">
                           <div className="friend-name">{friend.displayName}</div>
                           <div className="friend-last-msg">
                             {friend.lastMessage
-                              ? friend.lastMessage.senderId === user.id
+                              ? friend.lastMessage.senderId === currentUser.id
                                 ? `You: ${friend.lastMessage.content}`
                                 : friend.lastMessage.content
                               : `@${friend.username}`}
@@ -456,11 +480,21 @@ export default function Dashboard({ user, onLogout }) {
                         <div key={req.id} className="request-item">
                           <div
                             className="avatar avatar-sm"
-                            style={{ background: req.avatarColor }}
+                            style={{ background: req.avatarImage ? 'transparent' : req.avatarColor }}
+                            onClick={() => setProfileModalUserId(req.userId)}
+                            title="View Profile"
                           >
-                            {getInitials(req.displayName)}
+                            {req.avatarImage ? (
+                              <img src={req.avatarImage} alt="" className="avatar-img-round" />
+                            ) : (
+                              getInitials(req.displayName)
+                            )}
                           </div>
-                          <div className="request-info">
+                          <div
+                            className="request-info"
+                            onClick={() => setProfileModalUserId(req.userId)}
+                            style={{ cursor: 'pointer' }}
+                          >
                             <div className="request-name">{req.displayName}</div>
                             <div className="request-username">@{req.username}</div>
                           </div>
@@ -492,11 +526,21 @@ export default function Dashboard({ user, onLogout }) {
                         <div key={req.id} className="request-item">
                           <div
                             className="avatar avatar-sm"
-                            style={{ background: req.avatarColor }}
+                            style={{ background: req.avatarImage ? 'transparent' : req.avatarColor }}
+                            onClick={() => setProfileModalUserId(req.userId)}
+                            title="View Profile"
                           >
-                            {getInitials(req.displayName)}
+                            {req.avatarImage ? (
+                              <img src={req.avatarImage} alt="" className="avatar-img-round" />
+                            ) : (
+                              getInitials(req.displayName)
+                            )}
                           </div>
-                          <div className="request-info">
+                          <div
+                            className="request-info"
+                            onClick={() => setProfileModalUserId(req.userId)}
+                            style={{ cursor: 'pointer' }}
+                          >
                             <div className="request-name">{req.displayName}</div>
                             <div className="request-username">@{req.username}</div>
                           </div>
@@ -532,30 +576,59 @@ export default function Dashboard({ user, onLogout }) {
           </>
         )}
 
-        {/* Profile Footer */}
-        <div className="sidebar-profile">
-          <div className="avatar avatar-sm" style={{ background: user.avatarColor }}>
-            {getInitials(user.displayName)}
+        {/* Profile Footer - Click to view/edit own profile */}
+        <div
+          className="sidebar-profile"
+          onClick={() => setProfileModalUserId(currentUser.id)}
+          title="Click to view & edit your profile"
+        >
+          <div
+            className="avatar avatar-sm"
+            style={{ background: currentUser.avatarImage ? 'transparent' : currentUser.avatarColor }}
+          >
+            {currentUser.avatarImage ? (
+              <img src={currentUser.avatarImage} alt="" className="avatar-img-round" />
+            ) : (
+              getInitials(currentUser.displayName)
+            )}
             <div className="online-dot" />
           </div>
           <div className="sidebar-profile-info">
-            <div className="sidebar-profile-name">{user.displayName}</div>
-            <div className="sidebar-profile-username">@{user.username}</div>
+            <div className="sidebar-profile-name">{currentUser.displayName}</div>
+            <div className="sidebar-profile-username">@{currentUser.username}</div>
           </div>
         </div>
       </div>
 
       {/* ── Chat Area ── */}
       <ChatWindow
-        user={user}
+        user={currentUser}
         friend={selectedFriend}
         messages={messages}
         isTyping={selectedFriend ? typingUsers.has(selectedFriend.id) : false}
         onSendMessage={handleSendMessage}
         onTyping={handleTyping}
         onRemoveFriend={handleRemoveFriend}
+        onViewProfile={(friendId) => setProfileModalUserId(friendId)}
         onBack={() => setChatOpen(false)}
       />
+
+      {/* ── Profile Modal ── */}
+      {profileModalUserId !== undefined && (
+        <ProfileModal
+          targetUserId={profileModalUserId}
+          currentUser={currentUser}
+          onClose={() => setProfileModalUserId(undefined)}
+          onProfileUpdated={(updated) => {
+            setCurrentUser(updated);
+            if (onUserUpdate) onUserUpdate(updated);
+            loadFriends();
+          }}
+          onSelectFriend={(friend) => {
+            handleSelectFriend(friend);
+          }}
+        />
+      )}
     </div>
   );
 }

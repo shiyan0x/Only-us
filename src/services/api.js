@@ -33,6 +33,10 @@ export const signin = (username, password) =>
 
 export const getMe = () => request('GET', '/auth/me');
 
+export const updateProfile = (data) => request('PUT', '/users/profile', data);
+
+export const getUserProfile = (userId) => request('GET', `/users/profile/${userId}`);
+
 // Users
 export const searchUsers = (q) => request('GET', `/users/search?q=${encodeURIComponent(q)}`);
 

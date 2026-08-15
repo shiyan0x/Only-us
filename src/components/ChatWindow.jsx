@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, ArrowLeft, MessageSquare, UserMinus } from 'lucide-react';
+import { Send, ArrowLeft, MessageSquare, UserMinus, User } from 'lucide-react';
 
 export default function ChatWindow({
   user,
@@ -9,6 +9,7 @@ export default function ChatWindow({
   onSendMessage,
   onTyping,
   onRemoveFriend,
+  onViewProfile,
   onBack,
 }) {
   const [input, setInput] = useState('');
@@ -58,6 +59,7 @@ export default function ChatWindow({
   };
 
   const getInitials = (name) => {
+    if (!name) return '?';
     return name
       .split(' ')
       .map((n) => n[0])
@@ -122,11 +124,22 @@ export default function ChatWindow({
         </button>
         <div
           className="avatar"
-          style={{ background: friend.avatarColor }}
+          style={{ background: friend.avatarImage ? 'transparent' : friend.avatarColor, cursor: 'pointer' }}
+          onClick={() => onViewProfile && onViewProfile(friend.id)}
+          title="View Profile"
         >
-          {getInitials(friend.displayName)}
+          {friend.avatarImage ? (
+            <img src={friend.avatarImage} alt="" className="avatar-img-round" />
+          ) : (
+            getInitials(friend.displayName)
+          )}
         </div>
-        <div className="chat-header-info">
+        <div
+          className="chat-header-info"
+          onClick={() => onViewProfile && onViewProfile(friend.id)}
+          style={{ cursor: 'pointer' }}
+          title="View Profile"
+        >
           <div className="chat-header-name">{friend.displayName}</div>
           <div className="chat-header-status">
             <span
@@ -135,6 +148,13 @@ export default function ChatWindow({
             {friend.isOnline ? 'Online' : 'Offline'}
           </div>
         </div>
+        <button
+          className="btn-icon"
+          onClick={() => onViewProfile && onViewProfile(friend.id)}
+          title="View Profile"
+        >
+          <User size={18} />
+        </button>
         <button
           className="btn-icon"
           onClick={() => onRemoveFriend(friend.id)}
