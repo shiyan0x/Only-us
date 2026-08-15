@@ -305,6 +305,28 @@ app.put('/api/friends/reject/:requestId', authenticateToken, (req, res) => {
   res.json({ message: 'Friend request rejected.' });
 });
 
+// Remove a friend
+app.delete('/api/friends/:friendId', authenticateToken, (req, res) => {
+  const { friendId } = req.params;
+  const userId = req.user.id;
+  const targetId = parseInt(friendId);
+
+  // Delete the friendship record
+  const result = db.prepare(
+    `DELETE FROM friend_requests 
+     WHERE ((fromUserId = ? AND toUserId = ?) OR (fromUserId = ? AND toUserId = ?)) 
+     AND status = 'accepted'`
+  ).run(userId, targetId, targetId, userId);
+
+  // Notify the other user via socket if online
+  const targetSocketId = onlineUsers.get(targetId);
+  if (targetSocketId) {
+    io.to(targetSocketId).emit('friend:removed', { userId });
+  }
+
+  res.json({ message: 'Friend removed successfully.' });
+});
+
 // Get friends list
 app.get('/api/friends', authenticateToken, (req, res) => {
   const friends = db.prepare(

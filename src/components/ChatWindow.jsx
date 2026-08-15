@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, ArrowLeft, MessageSquare } from 'lucide-react';
+import { Send, ArrowLeft, MessageSquare, UserMinus } from 'lucide-react';
 
 export default function ChatWindow({
   user,
@@ -8,6 +8,7 @@ export default function ChatWindow({
   isTyping,
   onSendMessage,
   onTyping,
+  onRemoveFriend,
   onBack,
 }) {
   const [input, setInput] = useState('');
@@ -134,6 +135,14 @@ export default function ChatWindow({
             {friend.isOnline ? 'Online' : 'Offline'}
           </div>
         </div>
+        <button
+          className="btn-icon"
+          onClick={() => onRemoveFriend(friend.id)}
+          title="Remove Friend"
+          style={{ color: 'var(--accent-red)' }}
+        >
+          <UserMinus size={18} />
+        </button>
       </div>
 
       {/* Messages */}

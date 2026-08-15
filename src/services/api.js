@@ -48,6 +48,9 @@ export const acceptFriendRequest = (requestId) =>
 export const rejectFriendRequest = (requestId) =>
   request('PUT', `/friends/reject/${requestId}`);
 
+export const removeFriend = (friendId) =>
+  request('DELETE', `/friends/${friendId}`);
+
 export const getFriends = () => request('GET', '/friends');
 
 // Messages

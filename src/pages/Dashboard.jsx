@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import {
   searchUsers, sendFriendRequest, getFriendRequests,
-  acceptFriendRequest, rejectFriendRequest, getFriends,
+  acceptFriendRequest, rejectFriendRequest, removeFriend, getFriends,
   getMessages,
 } from '../services/api';
 import { getSocket } from '../services/socket';
@@ -76,6 +76,14 @@ export default function Dashboard({ user, onLogout }) {
       loadRequests();
     };
 
+    const handleFriendRemoved = ({ userId }) => {
+      if (selectedFriend?.id === userId) {
+        setSelectedFriend(null);
+        setChatOpen(false);
+      }
+      loadFriends();
+    };
+
     const handleUserStatus = ({ userId, isOnline }) => {
       setFriends((prev) =>
         prev.map((f) => (f.id === userId ? { ...f, isOnline } : f))
@@ -107,6 +115,7 @@ export default function Dashboard({ user, onLogout }) {
     socket.on('message:sent', handleMessageSent);
     socket.on('friend:request', handleFriendRequest);
     socket.on('friend:accepted', handleFriendAccepted);
+    socket.on('friend:removed', handleFriendRemoved);
     socket.on('user:status', handleUserStatus);
     socket.on('typing:start', handleTypingStart);
     socket.on('typing:stop', handleTypingStop);
@@ -117,12 +126,28 @@ export default function Dashboard({ user, onLogout }) {
       socket.off('message:sent', handleMessageSent);
       socket.off('friend:request', handleFriendRequest);
       socket.off('friend:accepted', handleFriendAccepted);
+      socket.off('friend:removed', handleFriendRemoved);
       socket.off('user:status', handleUserStatus);
       socket.off('typing:start', handleTypingStart);
       socket.off('typing:stop', handleTypingStop);
       socket.off('message:read', handleMessageRead);
     };
   }, [selectedFriend, loadFriends, loadRequests]);
+
+  // Handle remove friend
+  const handleRemoveFriend = async (friendId) => {
+    if (!window.confirm('Are you sure you want to remove this friend?')) return;
+    try {
+      await removeFriend(friendId);
+      if (selectedFriend?.id === friendId) {
+        setSelectedFriend(null);
+        setChatOpen(false);
+      }
+      loadFriends();
+    } catch (err) {
+      console.error('Failed to remove friend:', err);
+    }
+  };
 
   // Search users
   useEffect(() => {
@@ -528,6 +553,7 @@ export default function Dashboard({ user, onLogout }) {
         isTyping={selectedFriend ? typingUsers.has(selectedFriend.id) : false}
         onSendMessage={handleSendMessage}
         onTyping={handleTyping}
+        onRemoveFriend={handleRemoveFriend}
         onBack={() => setChatOpen(false)}
       />
     </div>
