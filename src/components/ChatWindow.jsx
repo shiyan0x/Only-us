@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, ArrowLeft, MessageSquare, UserMinus, User } from 'lucide-react';
+import { Send, ArrowLeft, MessageSquare, UserMinus, User, Phone, Video } from 'lucide-react';
 
 export default function ChatWindow({
   user,
@@ -10,6 +10,7 @@ export default function ChatWindow({
   onTyping,
   onRemoveFriend,
   onViewProfile,
+  onStartCall,
   onBack,
 }) {
   const [input, setInput] = useState('');
@@ -154,6 +155,20 @@ export default function ChatWindow({
           title="View Profile"
         >
           <User size={18} />
+        </button>
+        <button
+          className="btn-icon call-btn-header"
+          onClick={() => onStartCall && onStartCall('audio')}
+          title="Audio Call"
+        >
+          <Phone size={18} />
+        </button>
+        <button
+          className="btn-icon call-btn-header"
+          onClick={() => onStartCall && onStartCall('video')}
+          title="Video Call"
+        >
+          <Video size={18} />
         </button>
         <button
           className="btn-icon"

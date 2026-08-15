@@ -590,6 +590,61 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── Video / Audio Call Signaling ──
+  socket.on('call:initiate', ({ to, callType }) => {
+    const targetSocketId = onlineUsers.get(to);
+    if (targetSocketId) {
+      const caller = db.prepare(
+        'SELECT id, username, displayName, avatarColor, avatarImage FROM users WHERE id = ?'
+      ).get(userId);
+      io.to(targetSocketId).emit('call:incoming', { from: caller, callType });
+    } else {
+      socket.emit('call:unavailable', { userId: to });
+    }
+  });
+
+  socket.on('call:accept', ({ to }) => {
+    const targetSocketId = onlineUsers.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:accepted', { from: userId });
+    }
+  });
+
+  socket.on('call:reject', ({ to }) => {
+    const targetSocketId = onlineUsers.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:rejected', { from: userId });
+    }
+  });
+
+  socket.on('call:end', ({ to }) => {
+    const targetSocketId = onlineUsers.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:ended', { from: userId });
+    }
+  });
+
+  socket.on('call:offer', ({ to, offer }) => {
+    const targetSocketId = onlineUsers.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:offer', { from: userId, offer });
+    }
+  });
+
+  socket.on('call:answer', ({ to, answer }) => {
+    const targetSocketId = onlineUsers.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:answer', { from: userId, answer });
+    }
+  });
+
+  socket.on('call:ice-candidate', ({ to, candidate }) => {
+    const targetSocketId = onlineUsers.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:ice-candidate', { from: userId, candidate });
+    }
+  });
+
   // ── Disconnect ──
   socket.on('disconnect', () => {
     console.log(`👋 User disconnected: ${socket.username} (${userId})`);

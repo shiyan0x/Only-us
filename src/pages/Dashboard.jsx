@@ -11,6 +11,7 @@ import {
 import { getSocket } from '../services/socket';
 import ChatWindow from '../components/ChatWindow';
 import ProfileModal from '../components/ProfileModal';
+import CallModal from '../components/CallModal';
 
 export default function Dashboard({ user, onLogout, onUserUpdate }) {
   const [currentUser, setCurrentUser] = useState(user);
@@ -24,7 +25,11 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
   const [messages, setMessages] = useState([]);
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [chatOpen, setChatOpen] = useState(false);
-  const [profileModalUserId, setProfileModalUserId] = useState(undefined); // undefined: closed, null/user.id: own profile, other id: other user profile
+  const [profileModalUserId, setProfileModalUserId] = useState(undefined);
+  // Call state
+  const [callState, setCallState] = useState(null); // null | 'incoming' | 'outgoing' | 'active'
+  const [callType, setCallType] = useState(null);   // 'video' | 'audio'
+  const [callFriend, setCallFriend] = useState(null);
   const searchTimeout = useRef(null);
 
   // Load friends & requests
@@ -125,6 +130,25 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
     socket.on('typing:stop', handleTypingStop);
     socket.on('message:read', handleMessageRead);
 
+    // Call events
+    const handleIncomingCall = ({ from, callType: type }) => {
+      // Don't accept if already in a call
+      if (callState) return;
+      setCallFriend(from);
+      setCallType(type);
+      setCallState('incoming');
+    };
+
+    const handleCallUnavailable = () => {
+      alert('User is offline and cannot receive calls right now.');
+      setCallState(null);
+      setCallFriend(null);
+      setCallType(null);
+    };
+
+    socket.on('call:incoming', handleIncomingCall);
+    socket.on('call:unavailable', handleCallUnavailable);
+
     return () => {
       socket.off('message:receive', handleMessageReceive);
       socket.off('message:sent', handleMessageSent);
@@ -135,8 +159,22 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
       socket.off('typing:start', handleTypingStart);
       socket.off('typing:stop', handleTypingStop);
       socket.off('message:read', handleMessageRead);
+      socket.off('call:incoming', handleIncomingCall);
+      socket.off('call:unavailable', handleCallUnavailable);
     };
-  }, [selectedFriend, loadFriends, loadRequests]);
+  }, [selectedFriend, loadFriends, loadRequests, callState]);
+
+  // Handle start call (from chat header buttons)
+  const handleStartCall = (type) => {
+    if (!selectedFriend) return;
+    if (!selectedFriend.isOnline) {
+      alert('This user is offline. You can only call online friends.');
+      return;
+    }
+    setCallFriend(selectedFriend);
+    setCallType(type);
+    setCallState('outgoing');
+  };
 
   // Handle remove friend
   const handleRemoveFriend = async (friendId) => {
@@ -610,6 +648,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
         onTyping={handleTyping}
         onRemoveFriend={handleRemoveFriend}
         onViewProfile={(friendId) => setProfileModalUserId(friendId)}
+        onStartCall={handleStartCall}
         onBack={() => setChatOpen(false)}
       />
 
@@ -626,6 +665,21 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
           }}
           onSelectFriend={(friend) => {
             handleSelectFriend(friend);
+          }}
+        />
+      )}
+
+      {/* ── Call Modal ── */}
+      {callState && callFriend && (
+        <CallModal
+          callState={callState}
+          callType={callType}
+          friend={callFriend}
+          currentUser={currentUser}
+          onClose={() => {
+            setCallState(null);
+            setCallFriend(null);
+            setCallType(null);
           }}
         />
       )}
