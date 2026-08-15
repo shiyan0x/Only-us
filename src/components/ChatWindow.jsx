@@ -23,9 +23,10 @@ export default function ChatWindow({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  // Focus input when friend changes
+  // Focus input when friend changes (desktop only — avoids auto-keyboard on mobile)
   useEffect(() => {
-    if (friend) {
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (friend && !isTouchDevice) {
       inputRef.current?.focus();
     }
   }, [friend]);

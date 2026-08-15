@@ -88,7 +88,8 @@
 }
 
 html, body, #root {
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   width: 100%;
   overflow: hidden;
 }
@@ -434,16 +435,17 @@ a {
    ────────────────────────────────────────────── */
 
 .dashboard {
-  height: 100vh;
+  height: 100%;
   display: flex;
   background: var(--bg-primary);
+  overflow: hidden;
 }
 
 /* ── Sidebar ── */
 .sidebar {
   width: 340px;
   min-width: 340px;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
@@ -817,9 +819,10 @@ a {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   background: var(--bg-primary);
   position: relative;
+  overflow: hidden;
 }
 
 /* Empty State */
@@ -1639,7 +1642,7 @@ a {
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .call-local-video {
     width: 100px;
     height: 75px;
@@ -1666,5 +1669,140 @@ a {
 
   .call-friend-name {
     font-size: 1.25rem;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   MOBILE RESPONSIVE LAYOUT
+   ══════════════════════════════════════════════ */
+
+@media (max-width: 1024px) {
+  /* Dashboard fills parent (root already uses dvh) */
+  .dashboard {
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Sidebar takes full width on mobile */
+  .sidebar {
+    width: 100%;
+    min-width: 100%;
+    height: 100%;
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    transition: transform 0.3s ease;
+  }
+
+  /* When chat is open, hide sidebar and show chat */
+  .dashboard.chat-open .sidebar {
+    transform: translateX(-100%);
+    pointer-events: none;
+  }
+
+  /* Chat area takes full screen on mobile */
+  .chat-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+
+  .dashboard.chat-open .chat-area {
+    transform: translateX(0);
+  }
+
+  /* Show back button on mobile */
+  .dashboard.chat-open #btn-chat-back {
+    display: flex !important;
+  }
+
+  /* Chat header adjustments */
+  .chat-header {
+    padding: var(--space-md) var(--space-lg);
+    position: sticky;
+    top: 0;
+  }
+
+  /* Chat messages proper scrolling */
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--space-lg);
+  }
+
+  /* Chat input container */
+  .chat-input-container {
+    padding: var(--space-md) var(--space-lg);
+    padding-bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  }
+
+  /* Message max-width wider on mobile */
+  .message {
+    max-width: 85%;
+  }
+
+  /* Auth page responsive */
+  .auth-container {
+    padding: var(--space-lg);
+  }
+
+  /* Profile modal responsive */
+  .profile-modal-content {
+    width: 95%;
+    max-height: 85dvh;
+    max-height: 85vh;
+    margin: var(--space-lg);
+  }
+
+  /* Sidebar profile footer */
+  .sidebar-profile {
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  /* Search result items */
+  .search-result-item {
+    padding: var(--space-md);
+  }
+
+  /* Friend list items */
+  .friend-item {
+    padding: var(--space-md) var(--space-lg);
+  }
+}
+
+/* Extra small screens (phones in portrait) */
+@media (max-width: 480px) {
+  .chat-header {
+    padding: var(--space-sm) var(--space-md);
+    gap: var(--space-sm);
+  }
+
+  .chat-header .btn-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .chat-messages {
+    padding: var(--space-md);
+  }
+
+  .chat-input-container {
+    padding: var(--space-sm) var(--space-md);
+    padding-bottom: max(var(--space-sm), env(safe-area-inset-bottom));
+  }
+
+  .auth-brand-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .auth-brand h1 {
+    font-size: var(--font-xl);
   }
 }
