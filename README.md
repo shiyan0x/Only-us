@@ -12,6 +12,7 @@
   <img src="https://img.shields.io/badge/React-19.1-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
   <img src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
   <img src="https://img.shields.io/badge/Socket.IO-Realtime-010101?style=for-the-badge&logo=socketdotio&logoColor=white" />
+  <img src="https://img.shields.io/badge/WebRTC-Calls-333333?style=for-the-badge&logo=webrtc&logoColor=white" />
   <img src="https://img.shields.io/badge/SQLite-Database-003B57?style=for-the-badge&logo=sqlite&logoColor=white" />
   <img src="https://img.shields.io/badge/Vite-Frontend-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
 </p>
@@ -24,11 +25,12 @@
 |---------|-------------|
 | 🔐 **Anonymous Auth** | Sign up with just a username + password. No email, no phone number. |
 | 💬 **Real-time Chat** | Instant messaging powered by Socket.IO with typing indicators. |
+| 📹 **Video & Audio Calls** | 1-to-1 peer-to-peer calls via WebRTC. Mic/camera toggle, call timer. |
 | 👥 **Friend System** | Search users → Send friend request → Accept/Reject → Start chatting. |
 | 👤 **User Profiles** | Upload profile photo, write a bio, view friends list. |
 | 🟢 **Online Status** | See who's online with live green dots. |
 | 🗑️ **Remove Friends** | Remove a friend and permanently delete all chat history on both sides. |
-| 📱 **Responsive** | Works on desktop, tablet, and mobile browsers. |
+| 📱 **Fully Responsive** | Optimized for desktop, tablet, and mobile browsers with adaptive layout. |
 | 🌙 **Dark Glassmorphism UI** | Premium dark theme with glass effects, gradients, and smooth animations. |
 
 ---
@@ -70,6 +72,7 @@ onlyus/
     │
     ├── 🗂️ components/
     │   ├── 📄 ChatWindow.jsx        # Chat messages + input area
+    │   ├── 📄 CallModal.jsx         # Video/Audio call UI (WebRTC)
     │   └── 📄 ProfileModal.jsx      # View/Edit profile modal
     │
     └── 🗂️ services/
@@ -86,7 +89,8 @@ onlyus/
 | **Frontend** | React 19 + Vite | UI components & dev server |
 | **Styling** | Vanilla CSS | Dark glassmorphism design system |
 | **Backend** | Express.js | REST API + static file serving |
-| **Real-time** | Socket.IO | Live messaging, typing indicators, online status |
+| **Real-time** | Socket.IO | Live messaging, typing indicators, call signaling |
+| **Calling** | WebRTC | Peer-to-peer video & audio calls (no server relay) |
 | **Database** | sql.js (SQLite WASM) | Persistent storage — no DB server needed |
 | **Auth** | JWT + bcrypt | Token-based auth with hashed passwords |
 | **Icons** | Lucide React | Beautiful open-source icon set |
@@ -216,6 +220,12 @@ CREATE TABLE messages (
 | `friend:removed` | Server → Client | Friend was removed |
 | `user:status` | Server → Client | Online/offline status change |
 | `typing:start/stop` | Both | Typing indicator |
+| `call:initiate` | Client → Server | Start a video/audio call |
+| `call:incoming` | Server → Client | Incoming call notification |
+| `call:accept/reject` | Client → Server | Accept or reject a call |
+| `call:end` | Both | End an active call |
+| `call:offer/answer` | Relay | WebRTC SDP signaling |
+| `call:ice-candidate` | Relay | WebRTC ICE candidate exchange |
 
 ---
 
